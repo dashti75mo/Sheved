@@ -84,35 +84,7 @@ int Period = 14;
 
 #define UP_POINT 1
 #define DN_POINT -1
-void myAlert(string type, string message)
-  {
-   int handle;
-   if(type == "print")
-      Print(message);
-   else if(type == "error")
-     {
-      Print(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
-     }
-   else if(type == "order")
-     {
-     }
-   else if(type == "modify")
-     {
-     }
-   else if(type == "indicator")
-     {
-      Print(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
-      if(Audible_Alerts) Alert(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
-      handle = FileOpen("Rox.txt", FILE_TXT|FILE_READ|FILE_WRITE|FILE_SHARE_READ|FILE_SHARE_WRITE, ';');
-      if(handle != INVALID_HANDLE)
-        {
-         FileSeek(handle, 0, SEEK_END);
-         FileWrite(handle, type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
-         FileClose(handle);
-        }
-      if(Push_Notifications) SendNotification(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
-     }
-}
+
 int time_offset = 0;
 int OnInit()
 {
@@ -122,15 +94,6 @@ int OnInit()
    SetIndexBuffer(1, SlowUpPts);
    SetIndexBuffer(2, FastDnPts);
    SetIndexBuffer(3, FastUpPts);
-   SetIndexBuffer(4, Buffer1);
-   SetIndexEmptyValue(4, EMPTY_VALUE);
-   SetIndexArrow(4, 242);
-   myPoint = Point();
-   if(Digits() == 5 || Digits() == 3)
-     {
-      myPoint *= 10;
-     }
-
    if (fractals_show == true)
    {
       SetIndexStyle(0, DRAW_ARROW, 0, 3);
@@ -148,7 +111,6 @@ int OnInit()
       SetIndexStyle(1, DRAW_NONE);
       SetIndexStyle(2, DRAW_NONE);
       SetIndexStyle(3, DRAW_NONE);
-      SetIndexStyle(4, DRAW_ARROW, 3, 242,clrRed);
    }
 
    return(INIT_SUCCEEDED);
@@ -170,9 +132,7 @@ int OnCalculate(const int rates_total,
                 const long& volume[],
                 const int& spread[])
   {              
-   // Assign the values of rates_total and prev_calculated to the global variables
-    TotalBars = rates_total;
-    CalculatedBars = prev_calculated;
+
 
    if (NewBar() == true)
    {
@@ -186,18 +146,7 @@ int OnCalculate(const int rates_total,
       if (zone_count < old_zone_count)
          DeleteOldGlobalVars(old_zone_count);
          
-       int limit = rates_total - prev_calculated;
-   //--- counting from 0 to rates_total
-     ArraySetAsSeries(Buffer1, true);
-         if(prev_calculated < 1)
-     {
-      ArrayInitialize(Buffer1, EMPTY_VALUE);
-
-     }
-   else
-      limit++;
-       
-   }
+}
 
    if (zone_show_info == true)
    {
@@ -910,4 +859,3 @@ string StringRightPad(string str, int n=1, string str2=" ")
 {
   return(str + StringRepeat(str2,n-StringLen(str)));
 }
-
