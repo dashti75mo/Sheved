@@ -1,14 +1,20 @@
-
-
-#property copyright ""
-#property link      ""
-
 #property indicator_chart_window
-#property indicator_buffers 4
+#property indicator_buffers 5
 #property indicator_color1 Red
 #property indicator_color2 Red
 #property indicator_color3 DodgerBlue
 #property indicator_color4 DodgerBlue
+double Buffer1[];
+datetime time_alert; //used when sending alert
+extern bool Audible_Alerts = true;
+extern bool Push_Notifications = true;
+double myPoint; //initialized in OnInit
+#property indicator_type1 DRAW_ARROW
+#property indicator_width1 3
+#property indicator_color1 0x0000FF
+#property indicator_label1 "Sell"
+#include <stdlib.mqh>
+#include <stderror.mqh>
 
 extern int BackLimit   = 1000;
 
@@ -68,6 +74,7 @@ bool   zone_turn[1000];
 
 #define ZONE_SUPPORT 1
 #define ZONE_RESIST  2
+int Period = 14;
 
 #define ZONE_WEAK      0
 #define ZONE_TURNCOAT  1
@@ -77,17 +84,52 @@ bool   zone_turn[1000];
 
 #define UP_POINT 1
 #define DN_POINT -1
-
+void myAlert(string type, string message)
+  {
+   int handle;
+   if(type == "print")
+      Print(message);
+   else if(type == "error")
+     {
+      Print(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+     }
+   else if(type == "order")
+     {
+     }
+   else if(type == "modify")
+     {
+     }
+   else if(type == "indicator")
+     {
+      Print(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+      if(Audible_Alerts) Alert(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+      handle = FileOpen("Rox.txt", FILE_TXT|FILE_READ|FILE_WRITE|FILE_SHARE_READ|FILE_SHARE_WRITE, ';');
+      if(handle != INVALID_HANDLE)
+        {
+         FileSeek(handle, 0, SEEK_END);
+         FileWrite(handle, type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+         FileClose(handle);
+        }
+      if(Push_Notifications) SendNotification(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+     }
+}
 int time_offset = 0;
-
-int init()
+int OnInit()
 {
-   IndicatorBuffers(4);
+   IndicatorBuffers(5);
 
    SetIndexBuffer(0, SlowDnPts);
    SetIndexBuffer(1, SlowUpPts);
    SetIndexBuffer(2, FastDnPts);
    SetIndexBuffer(3, FastUpPts);
+   SetIndexBuffer(4, Buffer1);
+   SetIndexEmptyValue(4, EMPTY_VALUE);
+   SetIndexArrow(4, 242);
+   myPoint = Point();
+   if(Digits() == 5 || Digits() == 3)
+     {
+      myPoint *= 10;
+     }
 
    if (fractals_show == true)
    {
@@ -106,20 +148,32 @@ int init()
       SetIndexStyle(1, DRAW_NONE);
       SetIndexStyle(2, DRAW_NONE);
       SetIndexStyle(3, DRAW_NONE);
+      SetIndexStyle(4, DRAW_ARROW, 3, 242,clrRed);
    }
 
-   return(0);
+   return(INIT_SUCCEEDED);
 }
 
-int deinit()
-{
-   DeleteZones();
-   DeleteGlobalVars();
-   return(0);
-}
+// Declare global variables
+int TotalBars = 0;
+int CalculatedBars = 0;
+double open[];
 
-int start()
-{
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime& time[],
+                const double& open[],
+                const double& high[],
+                const double& low[],
+                const double& close[],
+                const long& tick_volume[],
+                const long& volume[],
+                const int& spread[])
+  {              
+   // Assign the values of rates_total and prev_calculated to the global variables
+    TotalBars = rates_total;
+    CalculatedBars = prev_calculated;
+
    if (NewBar() == true)
    {
       int old_zone_count = zone_count;
@@ -131,6 +185,18 @@ int start()
       DrawZones();
       if (zone_count < old_zone_count)
          DeleteOldGlobalVars(old_zone_count);
+         
+       int limit = rates_total - prev_calculated;
+   //--- counting from 0 to rates_total
+     ArraySetAsSeries(Buffer1, true);
+         if(prev_calculated < 1)
+     {
+      ArrayInitialize(Buffer1, EMPTY_VALUE);
+
+     }
+   else
+      limit++;
+       
    }
 
    if (zone_show_info == true)
@@ -183,6 +249,7 @@ int start()
 
          int shift = k * zone_label_shift;
          double vpos = zone_hi[i] - (zone_hi[i] - zone_lo[i]) / 2;
+
          
 if (zone_strength[i] == ZONE_WEAK && zone_show_weak == false)
          continue;
@@ -197,11 +264,12 @@ if (zone_strength[i] == ZONE_TURNCOAT && zone_show_turncoat == false)
          ObjectSet(s, OBJPROP_PRICE1, vpos);
          ObjectSetText(s, StringRightPad(lbl, 36, " "), Text_size, Text_font,Text_color);
       }
+ 
+   CheckAlerts();
+ 
    }
 
-   CheckAlerts();
-
-   return(0);
+   return(rates_total);
 }
 
 void CheckAlerts()
@@ -217,7 +285,7 @@ void CheckAlerts()
 }
 
 bool CheckEntryAlerts()
-{
+{   
    // check for entries
    for (int i=0; i<zone_count; i++)
    {
@@ -239,6 +307,11 @@ bool CheckEntryAlerts()
 
          return(true);
       }
+  
+
+    // Use the calculated values in your function
+ 
+  
    }
 
    return(false);
@@ -837,3 +910,4 @@ string StringRightPad(string str, int n=1, string str2=" ")
 {
   return(str + StringRepeat(str2,n-StringLen(str)));
 }
+
