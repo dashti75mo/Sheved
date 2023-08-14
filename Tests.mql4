@@ -1,20 +1,19 @@
+//+------------------------------------------------------------------+
+//|                                               S vs D Indicator.mq4 |
+//|                                            Copyright 2022, Moj.DS |
+//|                                             https://www.LevelUP.com |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2022, Moj.DS"
+#property link      "https://www.LevelUP.com"
+#property version   "1.00"
+#property description "Signals Is Beta Testing,You Get Signal When a R or S Breaks and Have Some Conditions"
 #property indicator_chart_window
-#property indicator_buffers 5
+#property indicator_buffers 6
 #property indicator_color1 Red
 #property indicator_color2 Red
 #property indicator_color3 DodgerBlue
 #property indicator_color4 DodgerBlue
-double Buffer1[];
-datetime time_alert; //used when sending alert
-extern bool Audible_Alerts = true;
-extern bool Push_Notifications = true;
-double myPoint; //initialized in OnInit
-#property indicator_type1 DRAW_ARROW
-#property indicator_width1 3
-#property indicator_color1 0x0000FF
-#property indicator_label1 "Sell"
-#include <stdlib.mqh>
-#include <stderror.mqh>
+string ExpiryDate="2023.12.30";
 
 extern int BackLimit   = 1000;
 
@@ -74,7 +73,6 @@ bool   zone_turn[1000];
 
 #define ZONE_SUPPORT 1
 #define ZONE_RESIST  2
-int Period = 14;
 
 #define ZONE_WEAK      0
 #define ZONE_TURNCOAT  1
@@ -84,6 +82,34 @@ int Period = 14;
 
 #define UP_POINT 1
 #define DN_POINT -1
+
+int time_offset = 0;
+#include <stdlib.mqh>
+#include <stderror.mqh>
+
+//--- indicator settings
+#property indicator_chart_window
+#property indicator_buffers 6
+
+#property indicator_type1 DRAW_ARROW
+#property indicator_width1 3
+#property indicator_color1 0xFF0400
+#property indicator_label1 "Buy"
+
+#property indicator_type2 DRAW_ARROW
+#property indicator_width2 3
+#property indicator_color2 0x0000FF
+#property indicator_label2 "Sell"
+
+//--- indicator buffers
+double Buffer1[];
+double Buffer2[];
+
+datetime time_alert; //used when sending alert
+bool Audible_Alerts = true;
+bool Push_Notifications = true;
+double myPoint; //initialized in OnInit
+input bool signals_validity = false; // enable or diable signals on candles
 void myAlert(string type, string message)
   {
    int handle;
@@ -91,7 +117,7 @@ void myAlert(string type, string message)
       Print(message);
    else if(type == "error")
      {
-      Print(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+      Print(type+" | Sell & Buy Arrow @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
      }
    else if(type == "order")
      {
@@ -101,46 +127,94 @@ void myAlert(string type, string message)
      }
    else if(type == "indicator")
      {
-      Print(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
-      if(Audible_Alerts) Alert(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
-      handle = FileOpen("Rox.txt", FILE_TXT|FILE_READ|FILE_WRITE|FILE_SHARE_READ|FILE_SHARE_WRITE, ';');
+      Print(type+" | Sell & Buy Arrow @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+      if(Audible_Alerts) Alert(type+" | Sell & Buy Arrow @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+      handle = FileOpen("Sell & Buy Arrow.txt", FILE_TXT|FILE_READ|FILE_WRITE|FILE_SHARE_READ|FILE_SHARE_WRITE, ';');
       if(handle != INVALID_HANDLE)
         {
          FileSeek(handle, 0, SEEK_END);
-         FileWrite(handle, type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+         FileWrite(handle, type+" | Sell & Buy Arrow @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
          FileClose(handle);
         }
-      if(Push_Notifications) SendNotification(type+" | Rox @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+      if(Push_Notifications) SendNotification(type+" | Sell & Buy Arrow @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
      }
-}
-int time_offset = 0;
+  }
+datetime buySignalTimes[];  
+int buySignalCount = 0; 
+datetime sellSignalTimes[];
+int sellSignalCount = 0;  
 int OnInit()
 {
-   IndicatorBuffers(5);
+   //Validity Check
+      if(TimeCurrent() >= StrToTime(ExpiryDate))
+     {
+      Alert("Indicator Need Update");
+      return(0);
+     }
+   else
+     {
+      Print(" Indicator is Valid and Latest Version");
+     }
+    
+    // Read buy signal times from file
+    int fileHandle = FileOpen("buySignals.txt", FILE_READ|FILE_TXT); 
+    while (!FileIsEnding(fileHandle)) { 
+        string timeStr;
+        timeStr = FileReadString(fileHandle);
+        datetime time = StrToTime(StringSubstr(timeStr, 0, 19));
+        buySignalTimes[buySignalCount] = time;
+        buySignalCount++;
+    } 
+    FileClose(fileHandle); 
+       // Read buy signal times from file
+    int fileHandle2 = FileOpen("sellSignals.txt", FILE_READ|FILE_TXT); 
+    while (!FileIsEnding(fileHandle2)) { 
+        string timeStr2;
+        timeStr2 = FileReadString(fileHandle2);
+        datetime time2 = StrToTime(StringSubstr(timeStr, 0, 19));
+        buySignalTimes[sellSignalCount] = time;
+        sellSignalCount++;
+    } 
+    FileClose(fileHandle);   
+    
+    // Similarly read sell signal times
+    
+    // Display all past signals 
+    for (int b=0; b<buySignalCount; b++) {
+        // Create buy signal object at buySignalTimes[i]
+    }
+    for (int n=0; n<sellSignalCount; n++) {
+        // Create sell signal object at sellSignalTimes[i] 
+    }
+   IndicatorBuffers(6);
 
    SetIndexBuffer(0, SlowDnPts);
    SetIndexBuffer(1, SlowUpPts);
    SetIndexBuffer(2, FastDnPts);
    SetIndexBuffer(3, FastUpPts);
    SetIndexBuffer(4, Buffer1);
+   SetIndexBuffer(5, Buffer2);
+ /*  SetIndexEmptyValue(4, EMPTY_VALUE);
+   SetIndexArrow(4, 241);
    SetIndexEmptyValue(4, EMPTY_VALUE);
-   SetIndexArrow(4, 242);
-   myPoint = Point();
-   if(Digits() == 5 || Digits() == 3)
-     {
-      myPoint *= 10;
-     }
-
+   SetIndexArrow(4, 241); */
    if (fractals_show == true)
    {
       SetIndexStyle(0, DRAW_ARROW, 0, 3);
       SetIndexStyle(1, DRAW_ARROW, 0, 3);
       SetIndexStyle(2, DRAW_ARROW, 0, 1);
       SetIndexStyle(3, DRAW_ARROW, 0, 1);
+      SetIndexStyle(4, DRAW_ARROW,0,3,clrBlue);
+      SetIndexStyle(5, DRAW_ARROW,0,3,clrRed);
       SetIndexArrow(0, 218);
       SetIndexArrow(1, 217);
       SetIndexArrow(2, 218);
       SetIndexArrow(3, 217);
+      SetIndexArrow(4, 241);
+      SetIndexArrow(5, 242);
+     SetIndexEmptyValue(4, EMPTY_VALUE);
+     SetIndexEmptyValue(5, EMPTY_VALUE);
+   //  SetIndexArrow(4, 241);
    }
    else
    {
@@ -148,17 +222,26 @@ int OnInit()
       SetIndexStyle(1, DRAW_NONE);
       SetIndexStyle(2, DRAW_NONE);
       SetIndexStyle(3, DRAW_NONE);
-      SetIndexStyle(4, DRAW_ARROW, 3, 242,clrRed);
+      SetIndexStyle(4, DRAW_ARROW,0,3,clrBlue);
+      SetIndexStyle(5, DRAW_ARROW,0,3,clrRed);
+   //   SetIndexArrow(4, 241);
+     SetIndexEmptyValue(4, EMPTY_VALUE);
+     SetIndexEmptyValue(5, EMPTY_VALUE);
+     SetIndexArrow(4, 241);
+     SetIndexArrow(5, 242);
    }
 
+   
+
+   //initialize myPoint
+   myPoint = Point();
+   if(Digits() == 5 || Digits() == 3)
+     {
+      myPoint *= 10;
+     }
    return(INIT_SUCCEEDED);
+
 }
-
-// Declare global variables
-int TotalBars = 0;
-int CalculatedBars = 0;
-double open[];
-
 int OnCalculate(const int rates_total,
                 const int prev_calculated,
                 const datetime& time[],
@@ -169,11 +252,16 @@ int OnCalculate(const int rates_total,
                 const long& tick_volume[],
                 const long& volume[],
                 const int& spread[])
-  {              
-   // Assign the values of rates_total and prev_calculated to the global variables
-    TotalBars = rates_total;
-    CalculatedBars = prev_calculated;
+  {            
 
+  if(signals_validity)
+    {
+    Comment(""+"\n"+""+"\n"+"Signals Working and Enabled,Wait for them"+"\n"+"It's on testing please be careful!!!");
+    }
+    else
+    {
+    Comment("Signals Disabled");
+    }
    if (NewBar() == true)
    {
       int old_zone_count = zone_count;
@@ -185,20 +273,28 @@ int OnCalculate(const int rates_total,
       DrawZones();
       if (zone_count < old_zone_count)
          DeleteOldGlobalVars(old_zone_count);
-         
-       int limit = rates_total - prev_calculated;
-   //--- counting from 0 to rates_total
-     ArraySetAsSeries(Buffer1, true);
-         if(prev_calculated < 1)
-     {
-      ArrayInitialize(Buffer1, EMPTY_VALUE);
-
-     }
-   else
-      limit++;
-       
+      for (int x=0; x<buySignalCount; x++) {
+           if (ObjectFind(buySignalTimes[x]) == 0) {  
+               // Create buy signal object (arrow, text, etc.) at buySignalTimes[i]  
+           }
    }
-
+   }
+  for (int z=0; z<sellSignalCount; z++) {
+           if (ObjectFind(sellSignalTimes[z]) == 0) {  
+               // Create sell signal object (arrow, text, etc.) at sellSignalTimes[i]
+           }
+       }
+       
+       // Delete signals where time has passed 
+       for (int v=0; v<buySignalCount; v++) { 
+           if (ObjectFind("BuySignalText", buySignalTimes[v]) != 0) 
+               ObjectDelete("BuySignalText", buySignalTimes[v]);  
+       } 
+       for (int c=0; c<sellSignalCount; c++) { 
+           if (ObjectFind("SellSignalText", sellSignalTimes[c]) != 0)
+               ObjectDelete("SellSignalText", sellSignalTimes[c]);  
+       }
+     
    if (zone_show_info == true)
    {
       for (int i=0; i<zone_count; i++)
@@ -249,7 +345,6 @@ int OnCalculate(const int rates_total,
 
          int shift = k * zone_label_shift;
          double vpos = zone_hi[i] - (zone_hi[i] - zone_lo[i]) / 2;
-
          
 if (zone_strength[i] == ZONE_WEAK && zone_show_weak == false)
          continue;
@@ -264,12 +359,105 @@ if (zone_strength[i] == ZONE_TURNCOAT && zone_show_turncoat == false)
          ObjectSet(s, OBJPROP_PRICE1, vpos);
          ObjectSetText(s, StringRightPad(lbl, 36, " "), Text_size, Text_font,Text_color);
       }
- 
-   CheckAlerts();
- 
    }
+   int limit = rates_total - prev_calculated;
+   //--- counting from 0 to rates_total
+   ArraySetAsSeries(Buffer1, true);
+   ArraySetAsSeries(Buffer2, true);
+   //--- initial zero
+   if(prev_calculated < 1)
+     {
+      ArrayInitialize(Buffer1, EMPTY_VALUE);
+      ArrayInitialize(Buffer2, EMPTY_VALUE);
+     }
+   else
+      limit++;
+     
+   //--- main loop
+   for(int j = limit-1; j >= 0; j--)
+  // for(int v=0; v<zone_count; v++)
+     {
+      if (j >= MathMin(5000-1, rates_total-1-50)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
+      
+      //Indicator Buffer 1
+      if(
+       signals_validity
+      && Close[2+j] < Open[2+j]  //Candlestick Close < Candlestick Open  Bearish
+      && Close[1+j] > Open[1+j] //Candlestick Close > Candlestick Open Bullish
+      && Close[1+j] > Open[2+j] //Candlestick Close > Candlestick Open
+       
+      )
+      if((Close[2+j] >= zone_lo[i]) && (zone_type[i] == ZONE_SUPPORT ) && (zone_strength[i] == ZONE_UNTESTED || zone_strength[i] == ZONE_VERIFIED)
+       //&& Close[1+j]>=zone_lo[i] && (zone_strength[i] == ZONE_VERIFIED))  ///condition to give buy signal when resist broken
+      )
+        {
+         Buffer2[j] = Open[j]; //Set indicator value at Candlestick Open
+         if(j == 1 && Time[1] != time_alert) myAlert("indicator", "Sell"); //Alert on next bar open
+         time_alert = Time[1];
+         buySignalTimes[buySignalCount] = Time[j];  
+         buySignalCount++;
+        }
+      else
+        {
+         Buffer2[j] = EMPTY_VALUE;
+        }
+      //Indicator Buffer 2 sell signal
+     
+      if(signals_validity
+      && Close[1+j] < Open[1+j] //Candlestick Close < Candlestick Open
+      && Close[4+j] > Open[4+j] //Candlestick Close > Candlestick Open
+      && Close[1+j] < Open[4+j] //Candlestick Close > Candlestick Open
+      )
+      if( (Close[4+j] <= zone_hi[i]) && (zone_type[i] == ZONE_RESIST) && (zone_strength[i] == ZONE_UNTESTED || zone_strength[i] == ZONE_VERIFIED)
+      //&& Close[1+j]<=zone_hi[i] && (zone_strength[i] == ZONE_VERIFIED))
+      )
+        {
+         Buffer1[j] = Open[j]; //Set indicator value at Candlestick Open
+         if(j == 1 && Time[1] != time_alert) myAlert("indicator", "Buy"); //Alert on next bar open
+         time_alert = Time[1];
+        sellSignalTimes[sellSignalCount] = Time[j];
+        sellSignalCount++;
+        }
+      else
+        {
+         Buffer1[j] = EMPTY_VALUE;
+        }
+        
+    /*     
+//doji candle section
+    if(prev_calculated == 0) {
+        limit = rates_total - 3; // start from 3rd last candle
+    } else {
+        limit = rates_total - prev_calculated;
+    }
+   
+    for(int g = limit; g >= 0; g--) {
+        // Check if candle 2 is doji
+        bool is_candle2_doji = MathAbs(open[g+2] - close[g+2]) < (0.1 * (high[g+2] - low[g+2]));
+        
+        // Check if candle 1 is bearish and engulfs candle 2
+        bool is_candle1_engulfing = close[g+1] < open[g+1] && open[g+1] < close[g+2] && close[g+1] > open[g+2];
+        bool cdi =  (close[2+g] <= zone_hi[i]) && (zone_type[i] == ZONE_RESIST) && (zone_strength[i] == ZONE_UNTESTED || zone_strength[i] == ZONE_VERIFIED);
 
+        // Generate sell signal if conditions are met
+        if (cdi && is_candle2_doji && is_candle1_engulfing)
+         {
+         Buffer2[g] = Open[g]; //Set indicator value at Candlestick Open
+         if(g == 1 && Time[1] != time_alert) myAlert("indicator", "Sellsignaldoji"); //Alert on next bar open
+         time_alert = Time[1];
+        sellSignalTimes[sellSignalCount] = Time[g];
+        sellSignalCount++;
+        }
+    
+          else
+        {
+         Buffer2[j] = EMPTY_VALUE;
+        }
+   }*/
+   }  
+   CheckAlerts();
    return(rates_total);
+   return(0);
 }
 
 void CheckAlerts()
@@ -283,9 +471,24 @@ void CheckAlerts()
       if (CheckEntryAlerts() == true)
          lastalert = Time[0];
 }
+int OnDeinit(const int reason) { 
+    // Save buy signal times to file
+    int fileHandle = FileOpen("buySignals.txt", FILE_WRITE|FILE_TXT);
+    for (int i=0; i<buySignalCount; i++) {
+        FileWrite(fileHandle, TimeToString(buySignalTimes[i]) + ";"); 
+    }
+    FileClose(fileHandle);
+    int fileHandle2 = FileOpen("sellSignals.txt", FILE_WRITE|FILE_TXT);
+    for (int b=0; b<buySignalCount; b++) {
+        FileWrite(fileHandle, TimeToString(sellSignalTimes[i]) + ";"); 
+    }
+    FileClose(fileHandle);
+
+    // Similarly save sell signal times
+}
 
 bool CheckEntryAlerts()
-{   
+{
    // check for entries
    for (int i=0; i<zone_count; i++)
    {
@@ -307,11 +510,6 @@ bool CheckEntryAlerts()
 
          return(true);
       }
-  
-
-    // Use the calculated values in your function
- 
-  
    }
 
    return(false);
